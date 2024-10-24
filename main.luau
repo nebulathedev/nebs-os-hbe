@@ -1,112 +1,82 @@
--- CONFIGURATION
-
+-- // CONFIGURATION
 local Configuration = {
-	-- BASICS
+	Limb = "Head",
+	Size = 10,
 	
-	LimbToExpand = "Head", --> What limb should the script expand?
-	Size = 10, --> How big will it be, after expanding?
-	
-	-- CUSTOMIZATION
-	
-	Color = Color3.new(1, 1, 1),
-	Transparency = 0.85,
+	Color = Color3.fromRGB(95, 5, 252),
+	Transparency = 0.75,
 	Reflectance = 1,
 	Material = Enum.Material.ForceField,
 	CastShadow = false,
 	Shape = Enum.PartType.Block,
 	
-	-- ADVANCED
-	
-	DescendantLocation = game, --> Set to "workspace" if only humanoids located in the workspace will get expanded.
-	DestroyOnDeath = true, --> Whenever the humanoid dies, destroy the hitbox.
-	CentralizePosition = true, --> If true, the hitbox will always be positioned at the rootpart.
-	RemoveTags = true, --> If true, remove tags of the humanoids for better visualization.
+	RemoveJunk = true,
+	WeldToRoot = true,
+	RemoveHumanoidTags = true,
+	RemoveOnDeath = true,
 }
 
--- VARIABLES
-
-local RunService = game:GetService("RunService")
+-- // SERVICES & VARIABLES
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
+local workspace = game:GetService("Workspace")
 
-local Limbs = {}
-
--- FUNCTIONS
-
-local Lock = function(O: Instance, P: string, G: any)
+-- // FUNCTIONS
+local Lock = function(O: Instance, P, G)
 	O[P] = G
 	local LockConnection = O:GetPropertyChangedSignal(P):Connect(function()
-		if (O and O ~= nil) then
-			O[P] = G
-		end
+		O[P] = G
 	end)
 end
 
-local WipeDescendants = function(O: Instance, DescendantsTable, Continue)
-	task.spawn(function()
-		local Analyse = function(Object)
-			for Index, Type in pairs(DescendantsTable) do
-				if (Object:IsA(Type)) then
-					task.defer(Object.Destroy, Object)
-				end
+local WipeDescendants = function(O: Instance, DescendantTable, Continuous)
+	local _ = function(Object)
+		for Index, Type in pairs(DescendantTable) do
+			if Object:IsA(Type) then
+				task.defer(Object.Destroy, Object)
 			end
 		end
-		for Index, Object in pairs(O:GetDescendants()) do Analyse(Object) end 
-		if Continue == true then
-			local DescendantAdded = O.DescendantAdded:Connect(Analyse)
-		end
-	end)
+	end
+	
+	for Index, Object in pairs(O:GetDescendants()) do _(Object) end
+	if Continuous == true then O.DescendantAdded:Connect(_) end
 end
 
--- SCRIPT
-
-local Analyse = function(Object)
-	if (Object:IsA("BasePart") and Object.Name == Configuration.LimbToExpand) then
-		if not (Object:FindFirstAncestor(Player.Name)) then
-			local Character = Object.Parent
-			if (Character and Character ~= nil) then
-				local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
-				if (Humanoid and Humanoid ~= nil) then
-					
-					if (Configuration.RemoveTags == true) then
-						Lock(Humanoid, "DisplayDistanceType", Enum.HumanoidDisplayDistanceType.None)
-						Lock(Humanoid, "DisplayName", "")
-						Lock(Humanoid, "HealthDisplayDistance", 0)
-						Lock(Humanoid, "HealthDisplayType", Enum.HumanoidHealthDisplayType.AlwaysOff)
-						Lock(Humanoid, "NameDisplayDistance", 0)
-						Lock(Humanoid, "NameOcclusion", Enum.NameOcclusion.OccludeAll)
-					end
+local Analyse = function(Object: BasePart)
+	if (Object:IsA("BasePart") and Object.Name == Configuration.Limb) then
+		local Humanoid = Object.Parent:FindFirstChildWhichIsA("Humanoid")
+		if (Humanoid) then
+			if not (Object:FindFirstAncestor(Player.Name)) then
+				if not Object:HasTag("Nebula's HBE: TAGGED") then
+					Object:AddTag("Nebula's HBE: TAGGED")
 					
 					Lock(Object, "Size", Vector3.new(Configuration.Size, Configuration.Size, Configuration.Size))
 					Lock(Object, "Color", Configuration.Color)
 					Lock(Object, "Transparency", Configuration.Transparency)
 					Lock(Object, "Reflectance", Configuration.Reflectance)
-					Lock(Object, "Material", Configuration.Material)
 					Lock(Object, "CastShadow", Configuration.CastShadow)
+					Lock(Object, "Material", Configuration.Material)
 					if (Object:IsA("Part")) then
 						Lock(Object, "Shape", Configuration.Shape)
 					end
 					Lock(Object, "CanCollide", false)
-					Lock(Object, "Locked", true)
-					Lock(Object, "CollisionGroup", "nil")
 					Lock(Object, "CanQuery", true)
 					Lock(Object, "CanTouch", true)
-					Lock(Object, "TopSurface", Enum.SurfaceType.SmoothNoOutlines)
-					Lock(Object, "BottomSurface", Enum.SurfaceType.SmoothNoOutlines)
-					Lock(Object, "FrontSurface", Enum.SurfaceType.SmoothNoOutlines)
-					Lock(Object, "BackSurface", Enum.SurfaceType.SmoothNoOutlines)
-					Lock(Object, "RightSurface", Enum.SurfaceType.SmoothNoOutlines)
-					Lock(Object, "LeftSurface", Enum.SurfaceType.SmoothNoOutlines)
+					Lock(Object, "Locked", false)
+					Lock(Object, "Archivable", true)
+					Lock(Object, "Massless", true)
+					Lock(Object, "CustomPhysicalProperties", PhysicalProperties.new(0.001, 0, 0, 0, 0))
 					
-					if (Configuration.CentralizePosition == true) then
-						local Root = Character:FindFirstChild("HumanoidRootPart")
-						if (Root) then
+					if Configuration.RemoveJunk == true then
+						WipeDescendants(Object, {"Decal", "Texture", "Beam", "Trail", "ParticleEmitter", "Sparkles", "Smoke", "Fire", "SurfaceAppearance", "SpecialMesh", "FileMesh", "BlockMesh", "CylinderMesh"})
+					end
+					
+					if Configuration.WeldToRoot == true then
+						local Root = Object.Parent:FindFirstChild("HumanoidRootPart")
+						if Root then
 							for Index, Joint in pairs(Object:GetJoints()) do
 								task.defer(Joint.Destroy, Joint)
 							end
-							WipeDescendants(Object, {"Weld", "ManualWeld", "ManualGlue", "Motor6D", "WeldConstraint", "Snap", "Rotate", "RotateV", "RotateP"}, true)
-							Object.Anchored = false
-							
 							local Weld = Instance.new("Weld", Object)
 							Weld.Name = "RootJoint"
 							Weld.Part0 = Object
@@ -115,11 +85,23 @@ local Analyse = function(Object)
 						end
 					end
 					
-					WipeDescendants(Object, {"Decal", "Texture", "FileMesh", "BlockMesh", "SpecialMesh", "CylinderMesh", "Fire", "Smoke", "Sparkes", "ParticleEmitter", "Beam", "Trail"}, true)
+					if Configuration.RemoveHumanoidTags == true then
+						Lock(Humanoid, "DisplayDistanceType", Enum.HumanoidDisplayDistanceType.None)
+						Lock(Humanoid, "DisplayName", "")
+						Lock(Humanoid, "HealthDisplayDistance", 0)
+						Lock(Humanoid, "HealthDisplayType", Enum.HumanoidHealthDisplayType.AlwaysOff)
+						Lock(Humanoid, "NameDisplayDistance", 0)
+						Lock(Humanoid, "NameOcclusion", Enum.NameOcclusion.OccludeAll)
+					end
 					
-					local DiedConnection = Humanoid.Died:Connect(function()
-						task.defer(Object.Destroy, Object)
-					end)
+					if Configuration.RemoveOnDeath == true then
+						local RemoveHitbox = function()
+							task.defer(Object.Destroy, Object)
+						end
+						
+						local HumanoidDied = Humanoid.Died:Connect(RemoveHitbox)
+						local HumanoidNil = Humanoid.Destroying:Connect(RemoveHitbox)
+					end
 					
 				end
 			end
@@ -127,5 +109,9 @@ local Analyse = function(Object)
 	end
 end
 
-for Index, Object in pairs(Configuration.DescendantLocation:GetDescendants()) do Analyse(Object) end
-local DescendantAdded = Configuration.DescendantLocation.DescendantAdded:Connect(Analyse)
+-- // CONNECTIONS & SCRIPT
+for Index, Object in pairs(workspace:GetDescendants()) do
+	Analyse(Object)
+end
+
+local DescendantAdded = workspace.DescendantAdded:Connect(Analyse)
